@@ -62,6 +62,10 @@ func main() {
 		}
 	}
 
+	if *compressPtr == true {
+		log.Println("Note, compression is not used with the SQL storage scheme")
+	}
+
 	var pubKeys []ed25519.PublicKey
 	if *numMinersPtr > 0 {
 		if len(*pubKeyPtr) == 0 && len(*keyFilePtr) == 0 {
@@ -110,15 +114,42 @@ func main() {
 	log.Println("Starting up...")
 	log.Printf("Genesis block ID: %s\n", genesisID)
 
-	// instantiate storage
-	blockStore, err := NewBlockStorageDisk(
-		filepath.Join(*dataDirPtr, "blocks"),
-		filepath.Join(*dataDirPtr, "headers.db"),
-		false, // not read-only
-		*compressPtr,
-	)
+	// load external configuration
+	var dbConfig BlockStorageSqlConfig
+	file, err := os.Open("config.json")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error opening config file: %s", err)
+		// defaults
+		dbConfig = BlockStorageSqlConfig{
+			Host:     "127.0.0.1",
+			Port:     3306,
+			Username: "root",
+			Password: "",
+			Database: "cruzbit",
+		}
+	} else {
+		err = json.NewDecoder(file).Decode(&dbConfig)
+		if err != nil {
+			fmt.Printf("Error decoding config file: %s", err)
+			// defaults
+			dbConfig = BlockStorageSqlConfig{
+				Host:     "127.0.0.1",
+				Port:     3306,
+				Username: "root",
+				Password: "",
+				Database: "cruzbit",
+			}
+		}
+		err = file.Close()
+		if err != nil {
+			fmt.Printf("Error closing config file: %s", err)
+		}
+	}
+
+	// instantiate storage
+	blockStore, err := NewBlockStorageSql(dbConfig, false)
+	if err != nil {
+		log.Fatal("Error initializing storage: ", err)
 	}
 
 	// instantiate the ledger
