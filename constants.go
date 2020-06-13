@@ -53,6 +53,17 @@ const MAX_NUMBER int64 = 1<<53 - 1
 // height at which we switch from bitcoin's difficulty adjustment algorithm to bitcoin cash's algorithm
 const BITCOIN_CASH_RETARGET_ALGORITHM_HEIGHT = 28861
 
+// new values after switch to 1 minute block time
+const FAST_BLOCKS_INITIAL_HEIGHT = 67500 // approximately Jun 21, 2020, one full year of cruzbit mining
+
+const FAST_BLOCKS_TARGET_SPACING = 60 // one minute
+
+const FAST_BLOCKS_COINBASE_REWARD = INITIAL_COINBASE_REWARD / (TARGET_SPACING / FAST_BLOCKS_TARGET_SPACING)
+
+const FAST_BLOCKS_FIRST_HALVING_HEIGHT = FAST_BLOCKS_INITIAL_HEIGHT + (525600 * 3) // activation plus three years
+
+const FAST_BLOCKS_UNTIL_REWARD_HALVING = BLOCKS_UNTIL_REWARD_HALVING * 6 // 1260000, four years
+
 // the below values only affect peering behavior and do not affect ledger consensus
 
 const DEFAULT_CRUZBIT_PORT = 8831

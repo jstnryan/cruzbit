@@ -670,19 +670,29 @@ func (p *Processor) acceptBlock(id BlockID, block *Block, now int64, source stri
 
 // BlockCreationReward computes the expected block reward for the given height.
 func BlockCreationReward(height int64) int64 {
-	halvings := height / BLOCKS_UNTIL_REWARD_HALVING
+	if height < FAST_BLOCKS_FIRST_HALVING_HEIGHT {
+		return INITIAL_COINBASE_REWARD // FAST_BLOCKS implemented before first halving
+	}
+
+	var halvings uint64 = 1
+	if height >= (FAST_BLOCKS_FIRST_HALVING_HEIGHT + FAST_BLOCKS_UNTIL_REWARD_HALVING) {
+		halvings = 1 + uint64((height-FAST_BLOCKS_FIRST_HALVING_HEIGHT)/FAST_BLOCKS_UNTIL_REWARD_HALVING)
+	}
 	if halvings >= 64 {
 		return 0
 	}
-	var reward int64 = INITIAL_COINBASE_REWARD
-	reward >>= uint64(halvings)
+	var reward int64 = FAST_BLOCKS_COINBASE_REWARD
+	reward >>= halvings
 	return reward
 }
 
 // Compute expected target of the current block
 func computeTarget(prevHeader *BlockHeader, blockStore BlockStorage, ledger Ledger) (BlockID, error) {
+	if prevHeader.Height >= FAST_BLOCKS_INITIAL_HEIGHT {
+		return computeTargetBitcoinCash(prevHeader, blockStore, ledger, true)
+	}
 	if prevHeader.Height >= BITCOIN_CASH_RETARGET_ALGORITHM_HEIGHT {
-		return computeTargetBitcoinCash(prevHeader, blockStore, ledger)
+		return computeTargetBitcoinCash(prevHeader, blockStore, ledger, false)
 	}
 	return computeTargetBitcoin(prevHeader, blockStore)
 }
@@ -746,7 +756,7 @@ func computeTargetBitcoin(prevHeader *BlockHeader, blockStore BlockStorage) (Blo
 }
 
 // Revised target computation
-func computeTargetBitcoinCash(prevHeader *BlockHeader, blockStore BlockStorage, ledger Ledger) (
+func computeTargetBitcoinCash(prevHeader *BlockHeader, blockStore BlockStorage, ledger Ledger, fastBlocks bool) (
 	targetID BlockID, err error) {
 
 	firstID, err := ledger.GetBlockIDForHeight(prevHeader.Height - RETARGET_SMA_WINDOW)
@@ -758,16 +768,21 @@ func computeTargetBitcoinCash(prevHeader *BlockHeader, blockStore BlockStorage, 
 		return
 	}
 
+	var spacing int64 = TARGET_SPACING
+	if fastBlocks {
+		spacing = FAST_BLOCKS_TARGET_SPACING
+	}
+
 	workInt := new(big.Int).Sub(prevHeader.ChainWork.GetBigInt(), firstHeader.ChainWork.GetBigInt())
-	workInt.Mul(workInt, big.NewInt(TARGET_SPACING))
+	workInt.Mul(workInt, big.NewInt(spacing))
 
 	// "In order to avoid difficulty cliffs, we bound the amplitude of the
 	// adjustment we are going to do to a factor in [0.5, 2]." - Bitcoin-ABC
 	actualTimespan := prevHeader.Time - firstHeader.Time
-	if actualTimespan > 2*RETARGET_SMA_WINDOW*TARGET_SPACING {
-		actualTimespan = 2 * RETARGET_SMA_WINDOW * TARGET_SPACING
-	} else if actualTimespan < (RETARGET_SMA_WINDOW/2)*TARGET_SPACING {
-		actualTimespan = (RETARGET_SMA_WINDOW / 2) * TARGET_SPACING
+	if actualTimespan > 2*RETARGET_SMA_WINDOW*spacing {
+		actualTimespan = 2 * RETARGET_SMA_WINDOW * spacing
+	} else if actualTimespan < (RETARGET_SMA_WINDOW/2)*spacing {
+		actualTimespan = (RETARGET_SMA_WINDOW / 2) * spacing
 	}
 
 	workInt.Div(workInt, big.NewInt(actualTimespan))
