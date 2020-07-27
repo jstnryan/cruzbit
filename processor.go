@@ -855,6 +855,12 @@ func (p *Processor) acceptBlockContinue(
 		}
 	}
 
+	if len(blocksToDisconnect) > MAX_REORG_DEPTH {
+		// the side branch has more chain work, but exceeds the allowed chain depth for a single reorganization
+		log.Printf("Block %s causes a reorganization which exceeds the maximum depth", id)
+		return p.ledger.SetBranchType(id, SIDE)
+	}
+
 	newAncestorID := block.Header.Previous
 	for newAncestor.Height > minHeight {
 		blocksToConnect = append([]BlockID{newAncestorID}, blocksToConnect...)

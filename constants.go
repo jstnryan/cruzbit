@@ -47,6 +47,8 @@ const BLOCKS_UNTIL_NEW_SERIES = 1008 // 1 week in blocks
 
 const MAX_MEMO_LENGTH = 100 // bytes (ascii/utf8 only)
 
+const MAX_REORG_DEPTH = 36
+
 // given our JSON protocol we should respect Javascript's Number.MAX_SAFE_INTEGER value
 const MAX_NUMBER int64 = 1<<53 - 1
 
